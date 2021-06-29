@@ -1,15 +1,21 @@
 const mongoose = require('mongoose');
 
-const cardSchema = mongoose.Schema({
+const cardSchema = new mongoose.Schema({
   name: {
     type: String,
-    minlength: 2,
-    maxlegth: 30,
     required: true,
+    minlength: 2,
+    maxlength: 30,
   },
   link: {
     type: String,
     required: true,
+    validate: {
+      validator(link) {
+        return /^(http:|https:)\/\/w*\w/.test(link);
+      },
+      message: 'Ссылка некорректна',
+    },
   },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
@@ -18,6 +24,7 @@ const cardSchema = mongoose.Schema({
   },
   likes: [{
     type: mongoose.Schema.Types.ObjectId,
+    ref: 'user',
     default: [],
   }],
   createdAt: {

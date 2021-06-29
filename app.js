@@ -1,38 +1,72 @@
 const express = require('express');
-const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
+const { celebrate, Joi, errors } = require('celebrate');
+const dotenv = require('dotenv');
 
-const cardsRoutes = require('./routes/cards');
-const usersRoutes = require('./routes/users');
+dotenv.config();
 
-const { ERROR_CODE_400 } = require('./utils/constants');
+const auth = require('./middlewares/auth');
+const customErrorsHandler = require('./middlewares/customErrorsHandler');
+const cardRouter = require('./routes/cards');
+const userRouter = require('./routes/users');
+const { login, createUser } = require('./controllers/users');
+const { server, database } = require('./utils/constants');
+const NotFoundError = require('./errors/not-found-error');
 
 const app = express();
-
 const { PORT = 3000 } = process.env;
 
-mongoose.connect('mongodb://localhost:27017/mestodb', {
-  useNewUrlParser: true,
-  useCreateIndex: true,
-  useFindAndModify: false,
-  useUnifiedTopology: true,
+async function connectDB() {
+  try {
+    await mongoose.connect(`mongodb://${server}/${database}`, {
+      useNewUrlParser: true,
+      useCreateIndex: true,
+      useFindAndModify: false,
+      useUnifiedTopology: true,
+    });
+    // eslint-disable-next-line no-console
+    console.log('==== База данных MongoDB подключена!');
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.log('Ошибка подключения к MongoDB', error);
+    process.exit(1);
+  }
+}
+connectDB();
+
+app.use(express.json());
+app.use(helmet());
+app.use(cookieParser());
+
+app.post('/signup', celebrate({
+  body: Joi.object().keys({
+    email: Joi.string().required().email(),
+    password: Joi.string().required().min(8).trim(),
+    name: Joi.string().min(2).max(30),
+    about: Joi.string().min(2).max(30),
+    avatar: Joi.string().pattern(/^(http:|https:)\/\/w*\w/),
+  }),
+}), createUser);
+app.post('/signin', celebrate({
+  body: Joi.object().keys({
+    email: Joi.string().required().email(),
+    password: Joi.string().min(8).required(),
+  }),
+}), login);
+
+app.use(auth);
+app.use('/users', userRouter);
+app.use('/cards', cardRouter);
+
+app.use(errors());
+app.use('*', () => {
+  throw new NotFoundError('Страница не найдена.');
 });
-
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-
-app.use((req, res, next) => {
-  req.user = { _id: '60c61ede904981052a8d76ee' };
-  next();
-});
-
-app.use('/', cardsRoutes);
-
-app.use('/', usersRoutes);
-
-app.use('*', (req, res) => res.status(ERROR_CODE_400).send({ message: 'Запрашиваемый ресурс не найден' }));
+app.use(customErrorsHandler);
 
 app.listen(PORT, () => {
   // eslint-disable-next-line no-console
-  console.log(`App listening on port ${PORT}`);
+  console.log(`==== Сервер запущен и доступен тут: http://localhost:${PORT}`);
 });
