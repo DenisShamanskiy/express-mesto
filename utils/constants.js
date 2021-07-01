@@ -1,10 +1,9 @@
-const server = 'localhost:27017';
+const OK_CODE_200 = 200;
+const urlServer = 'localhost:27017';
 const database = 'mestodb';
 
-const OK_CODE_200 = 200;
-
 module.exports = {
-  server,
+  urlServer,
   database,
   OK_CODE_200,
 };

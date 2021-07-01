@@ -2,39 +2,38 @@ const express = require('express');
 const mongoose = require('mongoose');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
-const { celebrate, Joi, errors } = require('celebrate');
+const { errors, celebrate, Joi } = require('celebrate');
 const dotenv = require('dotenv');
 
 dotenv.config();
 
+const NotFoundError = require('./errors/not-found-error');
 const auth = require('./middlewares/auth');
-const customErrorsHandler = require('./middlewares/customErrorsHandler');
 const cardRouter = require('./routes/cards');
 const userRouter = require('./routes/users');
 const { login, createUser } = require('./controllers/users');
-const { server, database } = require('./utils/constants');
-const NotFoundError = require('./errors/not-found-error');
+const { urlServer, database } = require('./utils/constants');
 
 const app = express();
 const { PORT = 3000 } = process.env;
 
-async function connectDB() {
+async function connectMongoose() {
   try {
-    await mongoose.connect(`mongodb://${server}/${database}`, {
+    await mongoose.connect(`mongodb://${urlServer}/${database}`, {
       useNewUrlParser: true,
       useCreateIndex: true,
       useFindAndModify: false,
       useUnifiedTopology: true,
     });
     // eslint-disable-next-line no-console
-    console.log('==== База данных MongoDB подключена!');
+    console.log('Связь с MongoDB установлена');
   } catch (error) {
     // eslint-disable-next-line no-console
     console.log('Ошибка подключения к MongoDB', error);
     process.exit(1);
   }
 }
-connectDB();
+connectMongoose();
 
 app.use(express.json());
 app.use(helmet());
@@ -61,12 +60,18 @@ app.use('/users', userRouter);
 app.use('/cards', cardRouter);
 
 app.use(errors());
+
 app.use('*', () => {
-  throw new NotFoundError('Страница не найдена.');
+  throw new NotFoundError('Запрашиваемый ресурс не найден');
 });
-app.use(customErrorsHandler);
+
+app.use((error, req, res, next) => {
+  const { ERROR_CODE_500 = 500, message } = error;
+  res.status(ERROR_CODE_500).send({ message: ERROR_CODE_500 === 500 ? 'На сервере произошла ошибка' : message });
+  next();
+});
 
 app.listen(PORT, () => {
   // eslint-disable-next-line no-console
-  console.log(`==== Сервер запущен и доступен тут: http://localhost:${PORT}`);
+  console.log(`Сервер запущен по адресу http://localhost:${PORT}`);
 });
