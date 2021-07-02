@@ -7,12 +7,23 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
+const rateLimit = require('express-rate-limit');
 const NotFoundError = require('./errors/not-found-error');
+
 const auth = require('./middlewares/auth');
+// eslint-disable-next-line import/extensions
+const customErrorsHandler = require('./middlewares/customErrorsHandler');
+const { validIsURL } = require('./utils/constants');
+
 const cardRouter = require('./routes/cards');
 const userRouter = require('./routes/users');
 const { login, createUser } = require('./controllers/users');
 const { urlServer, database } = require('./utils/constants');
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+});
 
 const app = express();
 const { PORT = 3000 } = process.env;
@@ -45,7 +56,7 @@ app.post('/signup', celebrate({
     password: Joi.string().required().min(8).trim(),
     name: Joi.string().min(2).max(30),
     about: Joi.string().min(2).max(30),
-    avatar: Joi.string().pattern(/^(http:|https:)\/\/w*\w/),
+    avatar: Joi.string().custom(validIsURL),
   }),
 }), createUser);
 app.post('/signin', celebrate({
@@ -55,6 +66,7 @@ app.post('/signin', celebrate({
   }),
 }), login);
 
+app.use(limiter);
 app.use(auth);
 app.use('/users', userRouter);
 app.use('/cards', cardRouter);
@@ -65,11 +77,7 @@ app.use('*', () => {
   throw new NotFoundError('Запрашиваемый ресурс не найден');
 });
 
-app.use((error, req, res, next) => {
-  const { ERROR_CODE_500 = 500, message } = error;
-  res.status(ERROR_CODE_500).send({ message: ERROR_CODE_500 === 500 ? 'На сервере произошла ошибка' : message });
-  next();
-});
+app.use(customErrorsHandler);
 
 app.listen(PORT, () => {
   // eslint-disable-next-line no-console

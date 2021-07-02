@@ -9,6 +9,8 @@ const {
   getCurrentUser,
 } = require('../controllers/users');
 
+const { validIsURL } = require('../utils/constants');
+
 router.get('/', getUsers);
 
 router.get('/me', getCurrentUser);
@@ -22,7 +24,7 @@ router.patch('/me', celebrate({
 
 router.patch('/me/avatar', celebrate({
   body: Joi.object().keys({
-    avatar: Joi.string().required().pattern(/^(http:|https:)\/\/w*\w/),
+    avatar: Joi.string().required().custom(validIsURL),
   }),
 }), updateAvatar);
 

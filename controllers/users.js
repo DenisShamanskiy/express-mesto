@@ -95,11 +95,11 @@ function createUser(req, res, next) {
       email,
       password: hash,
     }))
-    .then((user) => res.status(OK_CODE_200).send(user))
+    .then((user) => res.status(OK_CODE_200).send({
+      _id: user._id,
+      email: user.email,
+    }))
     .catch((err) => {
-      if (err.name === 'ValidationError') {
-        throw new BadRequestError('Переданы некорректные данные при создании пользователя');
-      }
       if (err.name === 'MongoError' && err.code === 11000) {
         throw new ConflictError(`Пользователь с Email ${req.body.email} уже существует`);
       }
